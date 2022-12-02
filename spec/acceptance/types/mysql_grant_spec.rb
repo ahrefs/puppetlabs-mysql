@@ -275,6 +275,7 @@ describe 'mysql_grant' do
         mysql_database { 'foo':
           ensure  => present,
           charset => '#{fetch_charset}',
+          collate => '#{fetch_charset}_general_ci',
         }
 
         exec { 'mysql-create-table':
@@ -464,7 +465,7 @@ describe 'mysql_grant' do
 
       it 'finds the user #stdout' do
         run_shell('mysql -NBe "SHOW GRANTS FOR proxy1@tester"') do |r|
-          expect(r.stdout).to match(%r{GRANT PROXY ON 'proxy_user'@'proxy_host' TO ['|`]proxy1['|`]@['|`]tester['|`]})
+          expect(r.stdout).to match(%r{GRANT USAGE ON *.* TO ['|`]proxy1['|`]@['|`]tester['|`]\nGRANT PROXY ON ['|`]proxy_user['|`]@['|`]proxy_host['|`] TO ['|`]proxy1['|`]@['|`]tester['|`]\n})
           expect(r.stderr).to be_empty
         end
       end
@@ -685,8 +686,8 @@ describe 'mysql_grant' do
         mysql::db { 'grant_spec_db':
           user     => 'root1',
           password => 'password',
-          sql      => '/tmp/grant_spec_table.sql',
-          charset  => #{fetch_charset},
+          charset  => '#{fetch_charset}',
+          sql      => ['/tmp/grant_spec_table.sql'],
         }
     MANIFEST
     it 'creates table' do

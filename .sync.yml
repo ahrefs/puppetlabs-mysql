@@ -21,16 +21,8 @@ Rakefile:
   unmanaged: false
 .github/workflows/nightly.yml:
   unmanaged: false
-  exclude_platforms:
-    - Debian-9
-    - Debian-10
-    - Debian-11
 .github/workflows/pr_test.yml:
   unmanaged: false
-  exclude_platforms:
-    - Debian-9
-    - Debian-10
-    - Debian-11
 .github/workflows/auto_release.yml:
   unmanaged: false
 .github/workflows/spec.yml:
@@ -41,3 +33,12 @@ Rakefile:
 .travis.yml:
   delete: true
 changelog_since_tag: 'v11.0.3'
+Rakefile:
+  extra_disabled_lint_checks:
+    - parameter_types
+    - parameter_documentation
+    - legacy_facts
+    - top_scope_facts
+    - anchor_resource
+    - relative_classname_reference
+    - params_empty_string_assignment

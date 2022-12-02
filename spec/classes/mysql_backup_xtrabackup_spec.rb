@@ -11,7 +11,9 @@ describe 'mysql::backup::xtrabackup' do
         EOF
       end
       let(:facts) do
-        facts.merge(root_home: '/root')
+        facts.merge(root_home: '/root',
+                    mysql_version: '5.7',
+                    mysld_version: 'mysqld  Ver 5.7.38 for Linux on x86_64 (MySQL Community Server - (GPL)')
       end
 
       let(:default_params) do
@@ -105,9 +107,78 @@ describe 'mysql::backup::xtrabackup' do
               ensure: 'present',
               user: 'backupuser@localhost',
               table: '*.*',
-              privileges: ['RELOAD', 'PROCESS', 'LOCK TABLES', 'REPLICATION CLIENT'],
+              privileges:
+              if (facts[:operatingsystem] == 'Debian' && Puppet::Util::Package.versioncmp(facts[:operatingsystemmajrelease], '11') >= 0) ||
+                (facts[:operatingsystem] == 'Ubuntu' && Puppet::Util::Package.versioncmp(facts[:operatingsystemmajrelease], '22') >= 0)
+                ['BINLOG MONITOR', 'RELOAD', 'PROCESS', 'LOCK TABLES']
+              else
+                ['RELOAD', 'PROCESS', 'LOCK TABLES', 'REPLICATION CLIENT']
+              end,
             )
             .that_requires('Mysql_user[backupuser@localhost]')
+        end
+
+        context 'with MySQL version 5.7' do
+          let(:facts) do
+            facts.merge(mysql_version: '5.7')
+          end
+
+          it {
+            is_expected.not_to contain_mysql_grant('backupuser@localhost/performance_schema.keyring_component_status')
+            is_expected.not_to contain_mysql_grant('backupuser@localhost/performance_schema.log_status')
+            is_expected.not_to contain_mysql_grant('backupuser@localhost/*.*')
+              .with(
+                ensure: 'present',
+                user: 'backupuser@localhost',
+                table: '*.*',
+                privileges:
+                  ['BACKUP_ADMIN'],
+              )
+              .that_requires('Mysql_user[backupuser@localhost]')
+          }
+        end
+
+        context 'with MySQL version 8.0' do
+          let(:facts) do
+            facts.merge(mysql_version: '8.0',
+                        mysld_version: 'mysqld  Ver 8.0.28 for Linux on x86_64 (MySQL Community Server - GPL)')
+          end
+
+          it {
+            is_expected.to contain_mysql_grant('backupuser@localhost/*.*')
+              .with(
+                ensure: 'present',
+                user: 'backupuser@localhost',
+                table: '*.*',
+                privileges:
+                if (facts[:operatingsystem] == 'Debian' && Puppet::Util::Package.versioncmp(facts[:operatingsystemmajrelease], '11') >= 0) ||
+                  (facts[:operatingsystem] == 'Ubuntu' && Puppet::Util::Package.versioncmp(facts[:operatingsystemmajrelease], '22') >= 0)
+                  ['BINLOG MONITOR', 'RELOAD', 'PROCESS', 'LOCK TABLES', 'BACKUP_ADMIN']
+                else
+                  ['RELOAD', 'PROCESS', 'LOCK TABLES', 'REPLICATION CLIENT', 'BACKUP_ADMIN']
+                end,
+              )
+              .that_requires('Mysql_user[backupuser@localhost]')
+            is_expected.to contain_mysql_grant('backupuser@localhost/performance_schema.keyring_component_status')
+              .with(
+                ensure: 'present',
+                user: 'backupuser@localhost',
+                table: 'performance_schema.keyring_component_status',
+                privileges:
+                  ['SELECT'],
+              )
+              .that_requires('Mysql_user[backupuser@localhost]')
+
+            is_expected.to contain_mysql_grant('backupuser@localhost/performance_schema.log_status')
+              .with(
+                ensure: 'present',
+                user: 'backupuser@localhost',
+                table: 'performance_schema.log_status',
+                privileges:
+                  ['SELECT'],
+              )
+              .that_requires('Mysql_user[backupuser@localhost]')
+          }
         end
       end
 
@@ -223,7 +294,8 @@ describe 'mysql::backup::xtrabackup' do
 
       context 'with mariabackup' do
         let(:params) do
-          { backupmethod: 'mariabackup' }.merge(default_params)
+          { backupmethod: 'mariabackup',
+            backupmethod_package: 'mariadb-backup' }.merge(default_params)
         end
 
         it 'contain the mariabackup executor' do

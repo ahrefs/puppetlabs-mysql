@@ -9,7 +9,6 @@ class mysql::params {
   $purge_conf_dir         = false
   $restart                = false
   $root_password          = 'UNSET'
-  $install_secret_file    = '/.mysql_secret'
   $server_package_ensure  = 'present'
   $server_package_manage  = true
   $server_service_manage  = true
@@ -37,7 +36,6 @@ class mysql::params {
   $client_dev_package_provider = undef
   $daemon_dev_package_ensure   = 'present'
   $daemon_dev_package_provider = undef
-  $xtrabackup_package_name_default = 'percona-xtrabackup'
 
   case $::osfamily {
     'RedHat': {
@@ -61,11 +59,11 @@ class mysql::params {
           if versioncmp($::operatingsystemmajrelease, '7') >= 0 {
             $provider = 'mariadb'
             if versioncmp($::operatingsystemmajrelease, '8') >= 0 {
-              $xtrabackup_package_name_override = 'percona-xtrabackup-24'
+              $xtrabackup_package_name = 'percona-xtrabackup-24'
             }
           } else {
             $provider = 'mysql'
-            $xtrabackup_package_name_override = 'percona-xtrabackup-20'
+            $xtrabackup_package_name = 'percona-xtrabackup-20'
           }
           if versioncmp($::operatingsystemmajrelease, '8') >= 0 {
             $java_package_name   = 'mariadb-java-client'
@@ -154,7 +152,7 @@ class mysql::params {
       $mycnf_owner         = undef
       $mycnf_group         = undef
       $server_service_name = 'mysql'
-      $xtrabackup_package_name_override = 'xtrabackup'
+      $xtrabackup_package_name = 'xtrabackup'
 
       $ssl_ca              = '/etc/mysql/cacert.pem'
       $ssl_cert            = '/etc/mysql/server-cert.pem'
@@ -171,9 +169,10 @@ class mysql::params {
     }
 
     'Debian': {
-      if $::operatingsystem == 'Debian' {
+      if $facts['os']['name'] == 'Debian' or $facts['os']['name'] == 'Raspbian' or
+      ($facts['os']['name'] == 'Ubuntu' and versioncmp($facts['os']['release']['major'], '20.04') >= 0) {
         $provider = 'mariadb'
-      } else { # Ubuntu
+      } else {
         $provider = 'mysql'
       }
       if $provider == 'mariadb' {
@@ -224,10 +223,10 @@ class mysql::params {
       if  ($::operatingsystem == 'Ubuntu' and versioncmp($::operatingsystemrelease, '16.04') < 0) or
       ($::operatingsystem == 'Ubuntu' and versioncmp($::operatingsystemrelease, '20.04') >= 0) or
       ($::operatingsystem == 'Debian') {
-        $xtrabackup_package_name_override = 'percona-xtrabackup-24'
+        $xtrabackup_package_name = 'percona-xtrabackup-24'
       }
       if ($::operatingsystem == 'Ubuntu' and versioncmp($::operatingsystemrelease, '20.04') >= 0) or
-      ($::operatingsystem == 'Debian' and versioncmp($::operatingsystemrelease, '11') >= 0){
+      ($::operatingsystem == 'Debian' and versioncmp($::operatingsystemrelease, '11') >= 0) {
         $python_package_name = 'python3-mysqldb'
       } else {
         $python_package_name = 'python-mysqldb'
@@ -236,9 +235,11 @@ class mysql::params {
       $ruby_package_name   =  $facts['os']['release']['major']  ? {
         '9'     => 'ruby-mysql2', # stretch
         '10'    => 'ruby-mysql2', # buster
+        '11'    => 'ruby-mysql2', # bullseye
         '16.04' => 'ruby-mysql', # xenial
         '18.04' => 'ruby-mysql2', # bionic
         '20.04' => 'ruby-mysql2', # focal
+        '22.04' => 'ruby-mysql2', # jammy
         default => 'libmysql-ruby',
       }
     }
@@ -358,33 +359,6 @@ class mysql::params {
       $php_package_name    = 'php-mysql'
       $python_package_name = 'py-mysql'
       $ruby_package_name   = 'ruby-mysql'
-      # The libraries installed by these packages are included in client and server packages, no installation required.
-      $client_dev_package_name     = undef
-      $daemon_dev_package_name     = undef
-    }
-
-    'Solaris': {
-      $client_package_name = 'database/mysql-55/client'
-      $server_package_name = 'database/mysql-55'
-      $basedir             = undef
-      $config_file         = '/etc/mysql/5.5/my.cnf'
-      $datadir             = '/var/mysql/5.5/data'
-      $log_error           = "/var/mysql/5.5/data/${::hostname}.err"
-      $pidfile             = "/var/mysql/5.5/data/${::hostname}.pid"
-      $root_group          = 'bin'
-      $server_service_name = 'application/database/mysql:version_55'
-      $socket              = '/tmp/mysql.sock'
-      $ssl_ca              = undef
-      $ssl_cert            = undef
-      $ssl_key             = undef
-      $tmpdir              = '/tmp'
-      $managed_dirs        = undef
-      # mysql::bindings
-      $java_package_name   = undef
-      $perl_package_name   = undef
-      $php_package_name    = 'web/php-53/extension/php-mysql'
-      $python_package_name = 'library/python/python-mysql'
-      $ruby_package_name   = undef
       # The libraries installed by these packages are included in client and server packages, no installation required.
       $client_dev_package_name     = undef
       $daemon_dev_package_name     = undef
@@ -537,10 +511,8 @@ class mysql::params {
     },
   }
 
-  if defined('$xtrabackup_package_name_override') {
-    $xtrabackup_package_name = pick($xtrabackup_package_name_override, $xtrabackup_package_name_default)
-  } else {
-    $xtrabackup_package_name = $xtrabackup_package_name_default
+  if !defined('$xtrabackup_package_name') {
+    $xtrabackup_package_name = 'percona-xtrabackup'
   }
 
   ## Additional graceful failures

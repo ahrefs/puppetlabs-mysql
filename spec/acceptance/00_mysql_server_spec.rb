@@ -1,7 +1,6 @@
 # frozen_string_literal: true
 
 require 'spec_helper_acceptance'
-export_locales
 
 describe 'mysql class' do
   describe 'advanced config' do
@@ -39,7 +38,8 @@ describe 'mysql class' do
           databases => {
             'somedb' => {
               ensure  => 'present',
-              charset => #{fetch_charset},
+              charset => '#{fetch_charset}',
+              collate => '#{fetch_charset}_general_ci',
             },
           }
         }
