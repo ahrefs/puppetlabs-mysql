@@ -137,6 +137,11 @@ Puppet::Type.type(:mysql_user).provide(:mysql, parent: Puppet::Provider::Mysql) 
     @property_hash[:ensure] == :present || false
   end
 
+  def flush
+    @property_hash.clear
+    self.class.mysql_caller('FLUSH PRIVILEGES', 'regular')
+  end
+
   ##
   ## MySQL user properties
   ##
@@ -162,7 +167,7 @@ Puppet::Type.type(:mysql_user).provide(:mysql, parent: Puppet::Provider::Mysql) 
         concat_name = @resource[:name]
         sql = "UPDATE mysql.user SET password = '', plugin = 'ed25519'"
         sql += ", authentication_string = '#{string}'"
-        sql += " where CONCAT(user, '@', host) = '#{concat_name}'; FLUSH PRIVILEGES"
+        sql += " where CONCAT(user, '@', host) = '#{concat_name}'"
       end
       self.class.mysql_caller(sql, 'system')
     elsif newer_than('mysql' => '5.7.6', 'percona' => '5.7.6', 'mariadb' => '10.2.0')
@@ -225,7 +230,7 @@ Puppet::Type.type(:mysql_user).provide(:mysql, parent: Puppet::Provider::Mysql) 
         concat_name = @resource[:name]
         sql = "UPDATE mysql.user SET password = '', plugin = '#{string}'"
         sql += ", authentication_string = '#{@resource[:password_hash]}'"
-        sql += " where CONCAT(user, '@', host) = '#{concat_name}'; FLUSH PRIVILEGES"
+        sql += " where CONCAT(user, '@', host) = '#{concat_name}'"
       end
     elsif newer_than('mysql' => '5.7.6', 'percona' => '5.7.6', 'mariadb' => '10.2.0')
       sql = "ALTER USER #{merged_name} IDENTIFIED WITH '#{string}'"
@@ -235,7 +240,6 @@ Puppet::Type.type(:mysql_user).provide(:mysql, parent: Puppet::Provider::Mysql) 
       sql = "UPDATE mysql.user SET plugin = '#{string}'"
       sql += ((string == 'mysql_native_password') ? ", password = '#{@resource[:password_hash]}'" : ", password = ''")
       sql += " WHERE CONCAT(user, '@', host) = '#{@resource[:name]}'"
-      sql += "; FLUSH PRIVILEGES;"
     end
 
     self.class.mysql_caller(sql, 'system')
